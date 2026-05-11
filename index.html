@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>BitCloks – Global Business & Knowledge Network</title>
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore-compat.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; }
+        body { background: #0a0f1e; color: #eef2ff; padding: 16px; }
+        .container { max-width: 700px; margin: 0 auto; }
+        .card { background: #111827; border-radius: 24px; padding: 20px; margin-bottom: 20px; border: 1px solid #1f2937; }
+        input, textarea, select, button { width: 100%; padding: 12px; margin: 6px 0; border-radius: 40px; border: none; font-size: 0.95rem; outline: none; }
+        input, textarea, select { background: #1e293b; color: white; border: 1px solid #334155; border-radius: 20px; }
+        button { background: #3b82f6; color: white; font-weight: bold; cursor: pointer; transition: 0.2s; }
+        .flex { display: flex; gap: 10px; flex-wrap: wrap; }
+        .nav { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; margin-bottom: 20px; border-bottom: 1px solid #1f2937; padding-bottom: 12px; }
+        .nav button { width: auto; padding: 8px 16px; background: #1e293b; margin: 0; }
+        .active-tab { background: #3b82f6; }
+        .user-item, .post-item, .message-item { background: #1e293b; border-radius: 20px; padding: 12px; margin-bottom: 12px; }
+        .user-name { font-weight: bold; font-size: 1.1rem; }
+        .user-bio { color: #94a3b8; font-size: 0.8rem; }
+        .chat-area { max-height: 400px; overflow-y: auto; margin-bottom: 12px; }
+        .my-message { text-align: right; background: #2563eb; margin-left: 20%; border-radius: 20px 20px 4px 20px; }
+        .their-message { background: #334155; margin-right: 20%; border-radius: 20px 20px 20px 4px; }
+        .message-text { padding: 8px 12px; }
+        .timestamp { font-size: 0.6rem; color: #9ca3af; padding: 0 8px 4px; }
+        .hidden { display: none; }
+        .badge { background: #0f172a; padding: 2px 8px; border-radius: 20px; font-size: 0.7rem; display: inline-block; }
+        hr { border-color: #1f2937; margin: 15px 0; }
+        .loading { text-align: center; color: #9ca3af; padding: 20px; }
+    </style>
+</head>
+<body>
+<div class="container" id="app">
+    <!-- AUTH SECTION (Login/Register) -->
+    <div id="authSection">
+        <div class="card">
+            <h2>🌍 BitCloks</h2>
+            <p style="margin-bottom: 16px;">Global Business & Knowledge Network</p>
+            <input type="email" id="loginEmail" placeholder="Email">
+            <input type="password" id="loginPassword" placeholder="Password">
+            <button onclick="login()">Login</button>
+            <hr>
+            <input type="email" id="regEmail" placeholder="New email">
+            <input type="password" id="regPassword" placeholder="New password">
+            <button onclick="register()">Create Account</button>
+        </div>
+    </div>
+
+    <!-- MAIN APP (after login) -->
+    <div id="mainApp" class="hidden">
+        <div class="nav">
+            <button id="tabProfileBtn" onclick="showTab('profile')">👤 My Profile</button>
+            <button id="tabNetworkBtn" onclick="showTab('network')">🌐 Network</button>
+            <button id="tabForumBtn" onclick="showTab('forum')">🧠 Forum</button>
+            <button id="tabChatsBtn" onclick="showTab('chats')">💬 Chats</button>
+            <button onclick="logout()">🚪 Logout</button>
+        </div>
+
+        <!-- PROFILE TAB -->
+        <div id="profileTab" class="tab-content">
+            <div class="card">
+                <h3>Your Profile</h3>
+                <input type="text" id="profileName" placeholder="Full Name">
+                <input type="text" id="profilePhoto" placeholder="Photo URL (optional)">
+                <textarea id="profileBio" rows="3" placeholder="About you, business, expertise..."></textarea>
+                <button onclick="updateProfile()">Save Profile</button>
+                <p style="font-size: 0.75rem; margin-top: 8px;">Email: <span id="userEmail"></span></p>
+            </div>
+        </div>
+
+        <!-- NETWORK TAB (all users + connect) -->
+        <div id="networkTab" class="tab-content hidden">
+            <div class="card">
+                <h3>All Members</h3>
+                <div id="usersList">Loading...</div>
+            </div>
+        </div>
+
+        <!-- FORUM TAB (posts & comments) -->
+        <div id="forumTab" class="tab-content hidden">
+            <div class="card">
+                <h3>Create Post</h3>
+                <input type="text" id="postTitle" placeholder="Title">
+                <textarea id="postContent" rows="3" placeholder="Share knowledge, ask question..."></textarea>
+                <button onclick="createPost()">📝 Publish Post</button>
+            </div>
+            <div class="card">
+                <h3>Recent Discussions</h3>
+                <div id="postsList">Loading...</div>
+            </div>
+        </div>
+
+        <!-- CHATS TAB (list of conversations) -->
+        <div id="chatsTab" class="tab-content hidden">
+            <div class="card">
+                <h3>Your Conversations</h3>
+                <div id="conversationsList">Loading...</div>
+            </div>
+        </div>
+
+        <!-- MESSAGING MODAL (inline) -->
+        <div id="chatModal" class="hidden" style="position: fixed; top:0; left:0; right:0; bottom:0; background: rgba(0,0,0,0.9); z-index:1000; padding:20px; overflow-y:auto;">
+            <div class="card" style="margin-top: 50px;">
+                <div style="display: flex; justify-content: space-between;">
+                    <h3 id="chatWithName"></h3>
+                    <button onclick="closeChatModal()" style="width:auto; background:#dc2626;">✖</button>
+                </div>
+                <div id="chatMessages" class="chat-area"></div>
+                <div class="flex">
+                    <input type="text" id="newMessage" placeholder="Type a message..." style="flex:1">
+                    <button onclick="sendMessage()" style="width:auto;">Send</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // ========== YOUR FIREBASE CONFIG (ALREADY ADDED) ==========
+    const firebaseConfig = {
+        apiKey: "AIzaSyDuq3IvP_zN1nHObDTaP5hv6SJTCq2TE0o",
+        authDomain: "bitcloks.firebaseapp.com",
+        projectId: "bitcloks",
+        storageBucket: "bitcloks.firebasestorage.app",
+        messagingSenderId: "426484484325",
+        appId: "1:426484484325:web:d13580eef956eb564dec0c",
+        measurementId: "G-XCFN8T0KYS"
+    };
+    
+    // Initialize Firebase
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+    
+    let currentUser = null;
+    let currentChatUserId = null;
+    
+    // Helper
+    function showTab(tabName) {
+        document.getElementById('profileTab').classList.add('hidden');
+        document.getElementById('networkTab').classList.add('hidden');
+        document.getElementById('forumTab').classList.add('hidden');
+        document.getElementById('chatsTab').classList.add('hidden');
+        document.getElementById(tabName + 'Tab').classList.remove('hidden');
+        
+        // Update active button style
+        ['Profile','Network','Forum','Chats'].forEach(t => {
+            const btn = document.getElementById('tab'+t+'Btn');
+            if(btn) btn.classList.remove('active-tab');
+        });
+        const activeBtn = document.getElementById('tab'+tabName.charAt(0).toUpperCase()+tabName.slice(1)+'Btn');
+        if(activeBtn) activeBtn.classList.add('active-tab');
+        
+        if(tabName === 'network') loadUsers();
+        if(tabName === 'forum') loadPosts();
+        if(tabName === 'chats') loadConversations();
+    }
+    
+    // Auth
+    function login() {
+        const email = document.getElementById('loginEmail').value;
+        const pwd = document.getElementById('loginPassword').value;
+        auth.signInWithEmailAndPassword(email, pwd)
+            .then(() => { document.getElementById('loginEmail').value = ''; document.getElementById('loginPassword').value = ''; })
+            .catch(err => alert("Login error: " + err.message));
+    }
+    
+    function register() {
+        const email = document.getElementById('regEmail').value;
+        const pwd = document.getElementById('regPassword').value;
+        auth.createUserWithEmailAndPassword(email, pwd)
+            .then(() => { document.getElementById('regEmail').value = ''; document.getElementById('regPassword').value = ''; })
+            .catch(err => alert("Register error: " + err.message));
+    }
+    
+    function logout() {
+        auth.signOut();
+    }
+    
+    // Profile
+    async function updateProfile() {
+        if(!currentUser) return;
+        const name = document.getElementById('profileName').value;
+        const photo = document.getElementById('profilePhoto').value;
+        const bio = document.getElementById('profileBio').value;
+        await db.collection('users').doc(currentUser.uid).set({
+            name: name,
+            photoURL: photo,
+            bio: bio,
+            email: currentUser.email,
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+        alert("Profile saved!");
+        loadProfile();
+    }
+    
+    async function loadProfile() {
+        if(!currentUser) return;
+        const doc = await db.collection('users').doc(currentUser.uid).get();
+        if(doc.exists) {
+            const data = doc.data();
+            document.getElementById('profileName').value = data.name || '';
+            document.getElementById('profilePhoto').value = data.photoURL || '';
+            document.getElementById('profileBio').value = data.bio || '';
+        }
+        document.getElementById('userEmail').innerText = currentUser.email;
+    }
+    
+    // Network - all users
+    async function loadUsers() {
+        const container = document.getElementById('usersList');
+        container.innerHTML = '<div class="loading">Loading members...</div>';
+        const snapshot = await db.collection('users').get();
+        let html = '';
+        snapshot.forEach(doc => {
+            if(doc.id === currentUser.uid) return;
+            const data = doc.data();
+            html += `
+                <div class="user-item">
+                    <div class="user-name">${escapeHtml(data.name || 'No name')}</div>
+                    <div class="user-bio">${escapeHtml(data.bio || '')}</div>
+                    <div class="flex" style="margin-top:8px;">
+                        <button onclick="openChat('${doc.id}', '${escapeHtml(data.name || 'User')}')" style="width:auto; background:#10b981;">Message</button>
+                    </div>
+                </div>`;
+        });
+        if(html === '') html = '<div class="loading">No other users yet.</div>';
+        container.innerHTML = html;
+    }
+    
+    // Forum
+    async function createPost() {
+        const title = document.getElementById('postTitle').value;
+        const content = document.getElementById('postContent').value;
+        if(!title.trim()) return alert("Title required");
+        await db.collection('posts').add({
+            title: title,
+            content: content,
+            authorId: currentUser.uid,
+            authorName: (await getUserData(currentUser.uid)).name || currentUser.email,
+            timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+            likes: 0
+        });
+        document.getElementById('postTitle').value = '';
+        document.getElementById('postContent').value = '';
+        loadPosts();
+    }
+    
+    async function loadPosts() {
+        const container = document.getElementById('postsList');
+        container.innerHTML = '<div class="loading">Loading posts...</div>';
+        const snapshot = await db.collection('posts').orderBy('timestamp', 'desc').get();
+        let html = '';
+        for(const docSnap of snapshot.docs) {
+            const p = docSnap.data();
+            const postId = docSnap.id;
+            // load comments
+            const commentsSnap = await db.collection('posts').doc(postId).collection('comments').orderBy('timestamp', 'asc').get();
+            let commentsHtml = '';
+            commentsSnap.forEach(c => {
+                const cdata = c.data();
+                commentsHtml += `<div style="background:#0f172a; border-radius:12px; padding:8px; margin-top:8px;"><strong>${escapeHtml(cdata.authorName)}</strong>: ${escapeHtml(cdata.text)}</div>`;
+            });
+            html += `
+                <div class="post-item">
+                    <strong>${escapeHtml(p.title)}</strong> <span class="badge">by ${escapeHtml(p.authorName)}</span>
+                    <p style="margin:8px 0;">${escapeHtml(p.content)}</p>
+                    <button onclick="likePost('${postId}')" style="width:auto; background:#f59e0b;">❤️ Like (${p.likes || 0})</button>
+                    <div style="margin-top:12px;">
+                        <input type="text" id="comment_${postId}" placeholder="Write a comment..." style="width:70%; display:inline-block;">
+                        <button onclick="addComment('${postId}')" style="width:25%;">Comment</button>
+                    </div>
+                    <div style="margin-top:12px;">${commentsHtml}</div>
+                </div>`;
+        }
+        if(html === '') html = '<div class="loading">No posts yet. Be the first!</div>';
+        container.innerHTML = html;
+    }
+    
+    async function likePost(postId) {
+        const postRef = db.collection('posts').doc(postId);
+        await postRef.update({ likes: firebase.firestore.FieldValue.increment(1) });
+        loadPosts();
+    }
+    
+    async function addComment(postId) {
+        const text = document.getElementById(`comment_${postId}`).value;
+        if(!text.trim()) return;
+        await db.collection('posts').doc(postId).collection('comments').add({
+            text: text,
+            authorId: currentUser.uid,
+            authorName: (await getUserData(currentUser.uid)).name || currentUser.email,
+            timestamp: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        document.getElementById(`comment_${postId}`).value = '';
+        loadPosts();
+    }
+    
+    // Messaging
+    async function openChat(userId, userName) {
+        currentChatUserId = userId;
+        document.getElementById('chatWithName').innerText = `Chat with ${userName}`;
+        document.getElementById('chatModal').classList.remove('hidden');
+        loadMessages();
+    }
+    
+    function closeChatModal() {
+        document.getElementById('chatModal').classList.add('hidden');
+        currentChatUserId = null;
+    }
+    
+    async function loadMessages() {
+        if(!currentUser || !currentChatUserId) return;
+        const chatId = getChatId(currentUser.uid, currentChatUserId);
+        const messagesRef = db.collection('chats').doc(chatId).collection('messages').orderBy('timestamp', 'asc');
+        const snapshot = await messagesRef.get();
+        const container = document.getElementById('chatMessages');
+        container.innerHTML = '';
+        snapshot.forEach(doc => {
+            const msg = doc.data();
+            const div = document.createElement('div');
+            div.className = msg.senderId === currentUser.uid ? 'my-message' : 'their-message';
+            div.innerHTML = `<div class="message-text">${escapeHtml(msg.text)}</div><div class="timestamp">${msg.timestamp?.toDate().toLocaleTimeString() || ''}</div>`;
+            container.appendChild(div);
+        });
+        container.scrollTop = container.scrollHeight;
+    }
+    
+    async function sendMessage() {
+        const text = document.getElementById('newMessage').value.trim();
+        if(!text || !currentChatUserId) return;
+        const chatId = getChatId(currentUser.uid, currentChatUserId);
+        await db.collection('chats').doc(chatId).collection('messages').add({
+            text: text,
+            senderId: currentUser.uid,
+            timestamp: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        document.getElementById('newMessage').value = '';
+        loadMessages();
+        // update last message for conversation list
+        await db.collection('chats').doc(chatId).set({
+            participants: [currentUser.uid, currentChatUserId],
+            lastMessage: text,
+            lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+        loadConversations();
+    }
+    
+    function getChatId(uid1, uid2) {
+        return uid1 < uid2 ? uid1 + '_' + uid2 : uid2 + '_' + uid1;
+    }
+    
+    async function loadConversations() {
+        const container = document.getElementById('conversationsList');
+        container.innerHTML = '<div class="loading">Loading chats...</div>';
+        const chatsSnap = await db.collection('chats')
+            .where('participants', 'array-contains', currentUser.uid)
+            .orderBy('lastUpdated', 'desc')
+            .get();
+        let html = '';
+        for(const docSnap of chatsSnap.docs) {
+            const data = docSnap.data();
+            const otherId = data.participants.find(id => id !== currentUser.uid);
+            const otherUser = await getUserData(otherId);
+            html += `
+                <div class="user-item" onclick="openChat('${otherId}', '${escapeHtml(otherUser.name || 'User')}')">
+                    <div class="user-name">${escapeHtml(otherUser.name || otherId)}</div>
+                    <div class="user-bio">Last: ${escapeHtml(data.lastMessage || '')}</div>
+                </div>`;
+        }
+        if(html === '') html = '<div class="loading">No conversations yet. Start messaging from Network tab.</div>';
+        container.innerHTML = html;
+    }
+    
+    async function getUserData(uid) {
+        const doc = await db.collection('users').doc(uid).get();
+        if(doc.exists) return doc.data();
+        return { name: uid, bio: '', photoURL: '' };
+    }
+    
+    function escapeHtml(str) {
+        if(!str) return '';
+        return str.replace(/[&<>]/g, function(m) {
+            if(m === '&') return '&amp;';
+            if(m === '<') return '&lt;';
+            if(m === '>') return '&gt;';
+            return m;
+        });
+    }
+    
+    // Listener for auth state
+    auth.onAuthStateChanged(async (user) => {
+        if(user) {
+            currentUser = user;
+            document.getElementById('authSection').classList.add('hidden');
+            document.getElementById('mainApp').classList.remove('hidden');
+            // ensure user document exists
+            const userDoc = await db.collection('users').doc(user.uid).get();
+            if(!userDoc.exists) {
+                await db.collection('users').doc(user.uid).set({
+                    email: user.email,
+                    name: user.email.split('@')[0],
+                    bio: '',
+                    photoURL: '',
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+            }
+            loadProfile();
+            showTab('profile');
+        } else {
+            currentUser = null;
+            document.getElementById('authSection').classList.remove('hidden');
+            document.getElementById('mainApp').classList.add('hidden');
+        }
+    });
+</script>
+</body>
+  </html>
