@@ -271,6 +271,7 @@
                     <strong>${escapeHtml(p.title)}</strong> <span class="badge">by ${escapeHtml(p.authorName)}</span>
                     <p style="margin:8px 0;">${escapeHtml(p.content)}</p>
                     <button onclick="likePost('${postId}')" style="width:auto; background:#f59e0b;">❤️ Like (${p.likes || 0})</button>
+                    ${p.authorId === currentUser.uid ? `<div style="margin-top:8px;"><button onclick="editPost('${postId}')" style="width:auto; background:#3b82f6; margin-right:8px;">✏️ Edit</button><button onclick="deletePost('${postId}')" style="width:auto; background:#dc2626;">🗑️ Delete</button></div>` : ''}
                     <div style="margin-top:12px;">
                         <input type="text" id="comment_${postId}" placeholder="Write a comment..." style="width:70%; display:inline-block;">
                         <button onclick="addComment('${postId}')" style="width:25%;">Comment</button>
@@ -444,6 +445,22 @@
             document.getElementById('mainApp').classList.add('hidden');
         }
     });
+    async function editPost(postId) {
+    const newTitle = prompt("নতুন টাইটেল লিখুন:");
+    if(!newTitle) return;
+    const newContent = prompt("নতুন কনটেন্ট লিখুন:");
+    if(!newContent) return;
+    await db.collection('posts').doc(postId).update({ title: newTitle, content: newContent });
+    loadPosts();
+}
+
+async function deletePost(postId) {
+    if(!confirm("পোস্টটি ডিলিট করবেন?")) return;
+    await db.collection('posts').doc(postId).delete();
+    const commentsRef = await db.collection('posts').doc(postId).collection('comments').get();
+    commentsRef.forEach(doc => doc.ref.delete());
+    loadPosts();
+    }
 </script>
 </body>
   </html>
