@@ -139,7 +139,7 @@
     
     let currentUser = null;
     let currentChatUserId = null;
-    
+    let currentUnsub = null;
     // Helper
     function showTab(tabName) {
         document.getElementById('profileTab').classList.add('hidden');
@@ -317,6 +317,10 @@
     function loadMessages() {
     if (!currentUser || !currentChatUserId) return;
 
+    if (currentUnsub) {
+        currentUnsub();
+    }
+
     const chatId = getChatId(currentUser.uid, currentChatUserId);
 
     const messagesRef = db
@@ -328,7 +332,7 @@
     const container = document.getElementById('chatMessages');
     container.innerHTML = '';
 
-    messagesRef.onSnapshot(snapshot => {
+    currentUnsub = messagesRef.onSnapshot(snapshot => {
         container.innerHTML = '';
 
         snapshot.forEach(doc => {
