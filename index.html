@@ -314,21 +314,43 @@
         currentChatUserId = null;
     }
     
-    async function loadMessages() {
-        if(!currentUser || !currentChatUserId) return;
-        const chatId = getChatId(currentUser.uid, currentChatUserId);
-        const messagesRef = db.collection('chats').doc(chatId).collection('messages').orderBy('timestamp', 'asc');
-        const snapshot = await messagesRef.get();
-        const container = document.getElementById('chatMessages');
+    function loadMessages() {
+    if (!currentUser || !currentChatUserId) return;
+
+    const chatId = getChatId(currentUser.uid, currentChatUserId);
+
+    const messagesRef = db
+        .collection('chats')
+        .doc(chatId)
+        .collection('messages')
+        .orderBy('timestamp', 'asc');
+
+    const container = document.getElementById('chatMessages');
+    container.innerHTML = '';
+
+    messagesRef.onSnapshot(snapshot => {
         container.innerHTML = '';
+
         snapshot.forEach(doc => {
             const msg = doc.data();
+
             const div = document.createElement('div');
-            div.className = msg.senderId === currentUser.uid ? 'my-message' : 'their-message';
-            div.innerHTML = `<div class="message-text">${escapeHtml(msg.text)}</div><div class="timestamp">${msg.timestamp?.toDate().toLocaleTimeString() || ''}</div>`;
+            div.className = msg.senderId === currentUser.uid
+                ? 'my-message'
+                : 'their-message';
+
+            div.innerHTML = `
+                <div class="message-text">${escapeHtml(msg.text)}</div>
+                <div class="timestamp">
+                    ${msg.timestamp?.toDate().toLocaleTimeString() || ''}
+                </div>
+            `;
+
             container.appendChild(div);
         });
+
         container.scrollTop = container.scrollHeight;
+    });
     }
     
     async function sendMessage() {
